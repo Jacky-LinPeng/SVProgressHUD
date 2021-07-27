@@ -150,3 +150,12 @@ typedef void (^SVProgressHUDDismissCompletion)(void);
 
 @end
 
+
+//MARK: 自定义：show a custom view
+@interface SVProgressHUD (Custom)
+
++ (void)setCustomViewSize:(CGSize)size;
++ (void)showCustomView:(nonnull UIView*)view;
++ (void)showCustomView:(nonnull UIView*)view status:(nullable NSString*)status;
+
+@end

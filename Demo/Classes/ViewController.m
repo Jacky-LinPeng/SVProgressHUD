@@ -72,9 +72,46 @@
 #pragma mark - Show Methods Sample
 
 - (void)show {
-    [SVProgressHUD show];
-    self.activityCount++;
+//    [SVProgressHUD show];
+//    self.activityCount++;
+    
+    
+    UIView *loadingView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 40, 30)];
+    loadingView.frame          = CGRectMake(0, 0, 40, 30);
+    loadingView.backgroundColor = [UIColor redColor];
+    [[self class] showCustomView:loadingView size:CGSizeMake(40, 30) status:@"dsadsa"];
+    
 }
+
+
++ (void)showCustomView:(UIView *)view size:(CGSize)size {
+   
+    [[self class] setupCommonUI];
+    [SVProgressHUD setCustomViewSize:size];
+    [SVProgressHUD setDefaultMaskType:SVProgressHUDMaskTypeClear];
+    [SVProgressHUD showCustomView:view];
+}
+
++ (void)showCustomView:(UIView *)view size:(CGSize)size status:(NSString *)status {
+
+    [[self class] setupCommonUI];
+    [SVProgressHUD setCustomViewSize:size];
+    [SVProgressHUD setDefaultMaskType:SVProgressHUDMaskTypeClear];
+    [SVProgressHUD showCustomView:view status:status];
+}
+
+#define GLColorHexString(s)     [UIColor colorWithHexString:s]
+#define GLColorHexStringA(s,a)  [UIColor colorWithHexString:s andAlpha:a]
+
++ (void)setupCommonUI {
+    [SVProgressHUD setFont:[UIFont systemFontOfSize:19]];
+    [SVProgressHUD setMinimumSize:CGSizeZero];
+    [SVProgressHUD setCornerRadius:10];
+    [SVProgressHUD setBackgroundColor:[UIColor blueColor]];
+    [SVProgressHUD setForegroundColor:[UIColor yellowColor]];
+}
+
+
 
 - (void)showWithStatus {
 	[SVProgressHUD showWithStatus:@"Doing Stuff"];

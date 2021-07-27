@@ -54,6 +54,11 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
 @property (nonatomic, readonly) CGFloat visibleKeyboardHeight;
 @property (nonatomic, readonly) UIWindow *frontWindow;
 
+//MARK: 自定义：show a custom view
+@property (nonatomic, strong) UIView *customView;
+@property (assign, nonatomic) CGSize customViewSize UI_APPEARANCE_SELECTOR;                 // default is 28x28 pt
+
+
 #if TARGET_OS_IOS && __IPHONE_OS_VERSION_MAX_ALLOWED >= 100000
 @property (nonatomic, strong) UINotificationFeedbackGenerator *hapticGenerator NS_AVAILABLE_IOS(10_0);
 #endif
@@ -413,6 +418,7 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
         _font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline];
         
         _imageViewSize = CGSizeMake(28.0f, 28.0f);
+        _customViewSize = CGSizeMake(28.0f, 28.0f);
         _shouldTintImages = YES;
         
         NSBundle *bundle = [NSBundle bundleForClass:[SVProgressHUD class]];
@@ -450,6 +456,7 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
     return self;
 }
 
+/*
 - (void)updateHUDFrame {
     // Check if an image or progress ring is displayed
     BOOL imageUsed = (self.imageView.image) && !(self.imageView.hidden);
@@ -518,6 +525,122 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
     // Label
     if(imageUsed || progressUsed) {
         centerY = CGRectGetMaxY(imageUsed ? self.imageView.frame : self.indefiniteAnimatedView.frame) + SVProgressHUDLabelSpacing + labelHeight / 2.0f;
+    } else {
+        centerY = CGRectGetMidY(self.hudView.bounds);
+    }
+    self.statusLabel.frame = labelRect;
+    self.statusLabel.center = CGPointMake(CGRectGetMidX(self.hudView.bounds), centerY);
+    
+    [CATransaction commit];
+}
+*/
+- (void)updateHUDFrame {
+    // Check if an image or progress ring is displayed
+    BOOL imageUsed = (self.imageView.image) && !(self.imageView.hidden);
+    BOOL customUsed = !self.customView.hidden;
+    BOOL progressUsed = (self.imageView.hidden)&&(self.customView.hidden);
+    
+    // Calculate size of string
+    CGRect labelRect = CGRectZero;
+    CGFloat labelHeight = 0.0f;
+    CGFloat labelWidth = 0.0f;
+    
+    if(self.statusLabel.text.length > 0) {
+        CGSize constraintSize = CGSizeMake([UIApplication sharedApplication].keyWindow.frame.size.width - 100, 300.0f);
+        labelRect = [self.statusLabel.text boundingRectWithSize:constraintSize
+                                                        options:(NSStringDrawingOptions)(NSStringDrawingUsesFontLeading | NSStringDrawingTruncatesLastVisibleLine | NSStringDrawingUsesLineFragmentOrigin)
+                                                     attributes:@{NSFontAttributeName: self.statusLabel.font}
+                                                        context:NULL];
+        labelHeight = ceilf(CGRectGetHeight(labelRect));
+        labelWidth = ceilf(CGRectGetWidth(labelRect));
+    }
+    
+    // Calculate hud size based on content
+    // For the beginning use default values, these
+    // might get update if string is too large etc.
+    CGFloat hudWidth;
+    CGFloat hudHeight;
+    
+    CGFloat contentWidth = 0.0f;
+    CGFloat contentHeight = 0.0f;
+    
+    if(imageUsed || progressUsed || customUsed) {
+        if (imageUsed) {
+            contentWidth = CGRectGetWidth(self.imageView.frame);
+            contentHeight = CGRectGetHeight(self.imageView.frame);
+        } else if (progressUsed) {
+            contentWidth = CGRectGetWidth(self.indefiniteAnimatedView.frame);
+            contentHeight = CGRectGetHeight(self.indefiniteAnimatedView.frame);
+        } else if (customUsed) {
+            contentWidth = CGRectGetWidth(self.customView.frame);
+            contentHeight = CGRectGetHeight(self.customView.frame);
+        }
+    }
+    
+    if (customUsed) {
+        if(self.statusLabel.text.length > 0) {
+            // |-spacing-content-spacing-|
+            hudWidth = SVProgressHUDHorizontalSpacing + MAX(labelWidth, contentWidth) + SVProgressHUDHorizontalSpacing;
+            // |-spacing-content-(labelSpacing-label-)spacing-|
+            hudHeight = 25 + contentHeight + labelHeight + 10;
+        } else {
+            // |-spacing-content-spacing-|
+            hudWidth = 7 + MAX(labelWidth, contentWidth) + 7;
+            // |-spacing-content-(labelSpacing-label-)spacing-|
+            hudHeight = 12 + contentHeight + 12;
+        }
+    } else {
+        // |-spacing-content-spacing-|
+        hudWidth = SVProgressHUDHorizontalSpacing + MAX(labelWidth, contentWidth) + SVProgressHUDHorizontalSpacing;
+        // |-spacing-content-(labelSpacing-label-)spacing-|
+        hudHeight = SVProgressHUDVerticalSpacing + contentHeight + labelHeight + SVProgressHUDVerticalSpacing;
+    }
+    
+    if(self.statusLabel.text.length > 0 && (imageUsed || progressUsed || customUsed)){
+        // Add spacing if both content and label are used
+        hudHeight += SVProgressHUDLabelSpacing;
+    }
+    
+    // Update values on subviews
+    self.hudView.bounds = CGRectMake(0.0f, 0.0f, MAX(self.minimumSize.width, hudWidth), MAX(self.minimumSize.height, hudHeight));
+    
+    // Animate value update
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    
+    // Spinner and image view
+    CGFloat centerY;
+    if(self.statusLabel.text.length > 0) {
+        CGFloat yOffset = MAX(SVProgressHUDVerticalSpacing, (self.minimumSize.height - contentHeight - SVProgressHUDLabelSpacing - labelHeight) / 2.0f);
+        centerY = yOffset + contentHeight / 2.0f;
+    } else {
+        centerY = CGRectGetMidY(self.hudView.bounds);
+    }
+    
+    if (progressUsed) {
+        self.indefiniteAnimatedView.center = CGPointMake(CGRectGetMidX(self.hudView.bounds), centerY);
+        if(self.progress != SVProgressHUDUndefinedProgress) {
+            self.backgroundRingView.center = self.ringView.center = CGPointMake(CGRectGetMidX(self.hudView.bounds), centerY);
+        }
+    }
+    
+    if (imageUsed) {
+        self.imageView.center = CGPointMake(CGRectGetMidX(self.hudView.bounds), centerY);
+    }
+    
+    if (customUsed) {
+        self.customView.center = CGPointMake(CGRectGetMidX(self.hudView.bounds), centerY);
+    }
+    
+    // Label
+    if(imageUsed || progressUsed || customUsed) {
+        if (imageUsed) {
+            centerY = CGRectGetMaxY(self.imageView.frame) + SVProgressHUDLabelSpacing + labelHeight / 2.0f;
+        } else if (progressUsed) {
+            centerY = CGRectGetMaxY(self.indefiniteAnimatedView.frame) + SVProgressHUDLabelSpacing + labelHeight / 2.0f;
+        } else if (customUsed) {
+            centerY = CGRectGetMaxY(self.customView.frame) + SVProgressHUDLabelSpacing + labelHeight / 2.0f;
+        }
     } else {
         centerY = CGRectGetMidY(self.hudView.bounds);
     }
@@ -1543,6 +1666,87 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
 
 - (void)setMaxSupportedWindowLevel:(UIWindowLevel)maxSupportedWindowLevel {
     if (!_isInitializing) _maxSupportedWindowLevel = maxSupportedWindowLevel;
+}
+
+
+@end
+
+
+
+//MARK: 自定义：show a custom view
+@implementation SVProgressHUD (Custom)
+
++ (void)setCustomViewSize:(CGSize)size {
+    [self sharedView].customViewSize = size;
+}
+
++ (void)showCustomView:(nonnull UIView*)view {
+    [self showCustomView:view status:@""];
+}
+
++ (void)showCustomView:(nonnull UIView*)view status:(nullable NSString*)status {
+    [[self sharedView] showCustomView:view status:status];
+}
+
+- (void)showCustomView:(UIView*)view status:(NSString*)status {
+    __weak SVProgressHUD *weakSelf = self;
+    [[NSOperationQueue mainQueue] addOperationWithBlock:^{
+        __strong SVProgressHUD *strongSelf = weakSelf;
+        if(strongSelf){
+            // Stop timer
+            strongSelf.fadeOutTimer = nil;
+            strongSelf.graceTimer = nil;
+            
+            // Update / Check view hierarchy to ensure the HUD is visible
+            [strongSelf updateViewHierarchy];
+            
+            // Reset progress and cancel any running animation
+            strongSelf.progress = SVProgressHUDUndefinedProgress;
+            [strongSelf cancelRingLayerAnimation];
+            [strongSelf cancelIndefiniteAnimatedViewAnimation];
+            
+            // Reset imageView
+            strongSelf.imageView.hidden = YES;
+            strongSelf.imageView.image = nil;
+            
+            // Update customView
+            if(!strongSelf.customView.superview){
+                [strongSelf.hudView.contentView addSubview:strongSelf.customView];
+            }
+            strongSelf.customView.hidden = NO;
+            for (UIView *contentView in strongSelf.customView.subviews) {
+                [contentView removeFromSuperview];
+            }
+            [strongSelf.customView addSubview:view];
+            
+            // Update text
+            strongSelf.statusLabel.hidden = status.length == 0;
+            strongSelf.statusLabel.text = status;
+            
+            // Fade in delayed if a grace time is set
+            // An image will be dismissed automatically. Thus pass the duration as userInfo.
+            if (self.graceTimeInterval > 0.0 && self.backgroundView.alpha == 0.0f) {
+                strongSelf.graceTimer = [NSTimer timerWithTimeInterval:self.graceTimeInterval target:strongSelf selector:@selector(fadeIn:) userInfo:nil repeats:NO];
+                [[NSRunLoop mainRunLoop] addTimer:strongSelf.graceTimer forMode:NSRunLoopCommonModes];
+            } else {
+                [strongSelf fadeIn:nil];
+            }
+        }
+    }];
+}
+
+- (UIView*)customView {
+    if(_customView && !CGSizeEqualToSize(_customView.bounds.size, _customViewSize)) {
+        [_customView removeFromSuperview];
+        _customView = nil;
+    }
+    if(!_customView) {
+        _customView = [[UIView alloc] initWithFrame:CGRectMake(0.0f, 0.0f, _customViewSize.width, _customViewSize.height)];
+    }
+    if(!_customView.superview) {
+        [self.hudView.contentView addSubview:_customView];
+    }
+    return _customView;
 }
 
 @end
